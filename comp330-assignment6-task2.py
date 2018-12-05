@@ -185,11 +185,15 @@ sequenceOfLetters = tf.unstack(inputX, axis=2)
 
 # now we implement the forward pass
 currentState = initialState
+keepStates = []
+for num in range(10):
+    keepStates.append(tf.Variable(np.random.normal(0, 0.05, (batchSize, hiddenUnits)), dtype=tf.float32))
 for timeTick in sequenceOfLetters:
     #
     # concatenate the state with the input, then compute the next state
-    inputPlusState = tf.concat([timeTick, currentState], 1)
+    inputPlusState = tf.concat([timeTick, currentState, keepStates.pop(0)], 1)  # concat 10th away state
     next_state = tf.tanh(tf.matmul(inputPlusState, W) + b)
+    keepStates.append(next_state)  # add the latest state
     currentState = next_state
 
 # compute the set of outputs
