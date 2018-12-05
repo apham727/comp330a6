@@ -5,7 +5,7 @@ import tensorflow as tf
 numTrainingIters = 10000
 
 # the number of hidden neurons that hold the state of the RNN
-hiddenUnits = 1000
+hiddenUnits = 500
 
 # the number of classes that we are learning over
 numClasses = 3
@@ -37,7 +37,7 @@ def addToData(maxSeqLen, data, fileName, classNum, linesToUse):
     #
     # sample linesToUse numbers; these will tell us what lines
     # from the text file we will use
-    myInts = np.random.random_integers(0, len(content) - 1, linesToUse)
+    myInts = np.random.choice(0, len(content) - 1, linesToUse)
     #
     # i is the key of the next line of text to add to the dictionary
     i = len(data)
@@ -152,9 +152,9 @@ maxSeqLen = 0
 data = {}
 
 # load up the three data sets
-(maxSeqLen, data) = addToData(maxSeqLen, data, "Holmes.txt", 0, 10000)
-(maxSeqLen, data) = addToData(maxSeqLen, data, "war.txt", 1, 10000)
-(maxSeqLen, data) = addToData(maxSeqLen, data, "william.txt", 2, 10000)
+(maxSeqLen, data) = addToData(maxSeqLen, data, "Holmes.txt", 0, 11000)
+(maxSeqLen, data) = addToData(maxSeqLen, data, "war.txt", 1, 11000)
+(maxSeqLen, data) = addToData(maxSeqLen, data, "william.txt", 2, 11000)
 
 # pad each entry in the dictionary with empty characters as needed so
 # that the sequences are all of the same length
@@ -169,7 +169,7 @@ inputY = tf.placeholder(tf.int32, [batchSize])
 initialState = tf.placeholder(tf.float32, [batchSize, hiddenUnits])
 
 # the weight matrix that maps the inputs and hidden state to a set of values
-W = tf.Variable(np.random.normal(0, 0.05, (hiddenUnits + 256, hiddenUnits)), dtype=tf.float32)
+W = tf.Variable(np.random.normal(0, 0.05, (2 * hiddenUnits + 256, hiddenUnits)), dtype=tf.float32)
 
 # biaes for the hidden values
 b = tf.Variable(np.zeros((1, hiddenUnits)), dtype=tf.float32)
@@ -185,9 +185,11 @@ sequenceOfLetters = tf.unstack(inputX, axis=2)
 
 # now we implement the forward pass
 currentState = initialState
+
 keepStates = []
 for num in range(10):
     keepStates.append(tf.Variable(np.random.normal(0, 0.05, (batchSize, hiddenUnits)), dtype=tf.float32))
+
 for timeTick in sequenceOfLetters:
     #
     # concatenate the state with the input, then compute the next state
@@ -216,11 +218,16 @@ with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     #
     # and run the training iters
-    for epoch in range(numTrainingIters):
+
+    total_loss = 0.0
+    total_correct = 0.0
+    num_testing = 1000
+
+    for epoch in range(numTrainingIters + num_testing):
         #
         # get some data
         x, y = generateDataRNN(maxSeqLen, data)
-        #
+
         # do the training epoch
         _currentState = np.zeros((batchSize, hiddenUnits))
         _totalLoss, _trainingAlg, _currentState, _predictions, _outputs = sess.run(
@@ -242,6 +249,10 @@ with tf.Session() as sess:
                     maxPos = j
             if maxPos == y[i]:
                 numCorrect = numCorrect + 1
+
+        if epoch >= numTrainingIters:
+            total_loss += totalLoss
+            total_correct += numCorrect
         #
         # print out to the screen
         print("Step", epoch, "Loss", _totalLoss, "Correct", numCorrect, "out of", batchSize)
