@@ -135,7 +135,7 @@ def generateDataRNN(maxSeqLen, data):
 def generateDataFeedForward(maxSeqLen, data):
     #
     # randomly sample batchSize lines of text
-    myInts = np.random.random_integers(0, len(data) - 1, batchSize)
+    myInts = np.random.choice(0, len(data) - 1, batchSize)
     #
     # stack all of the text into a matrix of one-hot characters
     x = np.stack(data[i][1].flatten() for i in myInts.flat)
