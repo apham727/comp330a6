@@ -135,7 +135,7 @@ def generateDataRNN(maxSeqLen, data):
 def generateDataFeedForward(maxSeqLen, data):
     #
     # randomly sample batchSize lines of text
-    myInts = np.random.choice(0, len(data) - 1, batchSize)
+    myInts = np.random.random_integers(0, len(data) - 1, batchSize)
     #
     # stack all of the text into a matrix of one-hot characters
     x = np.stack(data[i][1].flatten() for i in myInts.flat)
@@ -210,13 +210,9 @@ with tf.Session() as sess:
     #
     # initialize everything
     sess.run(tf.global_variables_initializer())
-
-    total_loss = 0.0
-    total_correct = 0.0
-    num_testing = 1000
-
+    #
     # and run the training iters
-    for epoch in range(numTrainingIters + num_testing):
+    for epoch in range(numTrainingIters):
         #
         # get some data
         x, y = generateDataRNN(maxSeqLen, data)
@@ -242,14 +238,9 @@ with tf.Session() as sess:
                     maxPos = j
             if maxPos == y[i]:
                 numCorrect = numCorrect + 1
-
-        if epoch >= numTrainingIters:
-            total_loss += totalLoss
-            total_correct += numCorrect
         #
         # print out to the screen
         print("Step", epoch, "Loss", _totalLoss, "Correct", numCorrect, "out of", batchSize)
 
-    avg_loss = total_loss / num_testing
-    avg_correct = total_correct / num_testing
-    print("Average loss is " + str(avg_loss) + ", average correct is " + str(avg_correct) + ".")
+
+
