@@ -213,9 +213,10 @@ with tf.Session() as sess:
 
     total_loss = 0.0
     total_correct = 0.0
+    num_testing = 1000
 
     # and run the training iters
-    for epoch in range(numTrainingIters):
+    for epoch in range(numTrainingIters + num_testing):
         #
         # get some data
         x, y = generateDataRNN(maxSeqLen, data)
@@ -242,12 +243,13 @@ with tf.Session() as sess:
             if maxPos == y[i]:
                 numCorrect = numCorrect + 1
 
-        total_loss += totalLoss
-        total_correct += numCorrect
+        if epoch >= numTrainingIters:
+            total_loss += totalLoss
+            total_correct += numCorrect
         #
         # print out to the screen
         print("Step", epoch, "Loss", _totalLoss, "Correct", numCorrect, "out of", batchSize)
 
-    avg_loss = total_loss / numTrainingIters
-    avg_correct = total_correct / numTrainingIters
+    avg_loss = total_loss / num_testing
+    avg_correct = total_correct / num_testing
     print("Average loss is " + str(avg_loss) + ", average correct is " + str(avg_correct) + ".")
