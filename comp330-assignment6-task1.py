@@ -32,7 +32,8 @@ batchSize = 100
 def addToData(maxSeqLen, data, test, fileName, classNum, linesToUse):
     #
     # open the file and read it in
-    path = "/content/drive/My Drive/COMP 330/Assignment6/" # for use with google colab
+    # path = "/content/drive/My Drive/COMP 330/Assignment6/" # for use with google colab
+    path = ""
     with open(path + fileName) as f:
         content = f.readlines()
     #
@@ -295,7 +296,7 @@ with tf.Session() as sess:
         total_correct += numCorrect
 
     print("TESTING RESULTS")
-    avg_loss = total_loss / batchSize
+    avg_loss = total_loss / num_batches
 
     # avg_correct = total_correct / num_testing
     # print("Average loss is " + str(avg_loss) + ", average correct is " + str(avg_correct) + ".")
