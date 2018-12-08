@@ -155,7 +155,7 @@ def generateDataFeedForward(maxSeqLen, data):
     # stack all of the text into a matrix of one-hot characters
     x = np.stack(data[i][1].flatten() for i in myInts.flat)
     #
-    # and stack all of the labels into a vector of labels
+    # and stack all of the labels into a vector of labels0.241753219
     y = np.stack(np.array((data[i][0])) for i in myInts.flat)
     #
     # return the pair
@@ -261,18 +261,22 @@ with tf.Session() as sess:
         final_state = _currentState # saves the state of the neural network after the last training iteration
         print("Step", epoch, "Loss", _totalLoss, "Correct", numCorrect, "out of", batchSize)
 
-
     # for evaluating accuracy on RNN
     total_loss = 0.0
     total_correct = 0.0
     num_testing = 3000
 
+    # we'll run the 3000 lines of testing data through the network in batches of 100
     num_batches = 30  # since we are going to feed 100 lines per batch, so 30 * 100 = 3000 lines in the test set
+    # we'll run 30 batches of data of 100 lines each
     for k in range(num_batches):
+        # create a size 100 subset of the testing dictionary for sending through the neural network
         test_subset = {}
         for l in range(batchSize):
             test_subset[l] = test[k * batchSize + l]
+        # format the test data into a form that we can feed into the neural network
         x, y = generateDataRNN(maxSeqLen, test_subset)
+        # run the test data through the neural network without modifying the network's parameters
         _currentState = np.zeros((batchSize, hiddenUnits))
         _totalLoss, _predictions, = sess.run(
             [totalLoss, predictions],
@@ -297,8 +301,5 @@ with tf.Session() as sess:
 
     print("TESTING RESULTS")
     avg_loss = total_loss / num_batches
-
-    # avg_correct = total_correct / num_testing
-    # print("Average loss is " + str(avg_loss) + ", average correct is " + str(avg_correct) + ".")
-    print("Average loss for 3000 randomly chosen documents is " + str(avg_loss) + "num correct labels is " + str(
+    print("Average loss for 3000 randomly chosen documents is " + str(avg_loss) + ", num correct labels is " + str(
         total_correct) + " out of " + str(num_testing))
