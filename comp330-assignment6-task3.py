@@ -5,7 +5,7 @@ import tensorflow as tf
 numTrainingIters = 10000
 
 # the number of hidden neurons that hold the state of the RNN
-hiddenUnits = 500
+hiddenUnits = 1000
 
 # the number of classes that we are learning over
 numClasses = 3
@@ -29,18 +29,22 @@ batchSize = 100
 #
 # The return val is the new maxSeqLen, as well as the new data
 # dictionary with the additional lines of text added
-def addToData(maxSeqLen, data, fileName, classNum, linesToUse):
+def addToData(maxSeqLen, data, test, fileName, classNum, linesToUse):
     #
     # open the file and read it in
-    with open(fileName) as f:
+    path = "/content/drive/My Drive/COMP 330/Assignment6/" # for use with google colab
+    with open(path + fileName) as f:
         content = f.readlines()
     #
     # sample linesToUse numbers; these will tell us what lines
     # from the text file we will use
-    myInts = np.random.choice(0, len(content) - 1, linesToUse)
+    myInts = np.random.choice(len(content), linesToUse)
     #
     # i is the key of the next line of text to add to the dictionary
     i = len(data)
+    counter = len(data)
+    original_data_len = len(data)
+    original_test_len = len(test)
     #
     # loop thru and add the lines of text to the dictionary
     for whichLine in myInts.flat:
@@ -48,6 +52,7 @@ def addToData(maxSeqLen, data, fileName, classNum, linesToUse):
         # get the line and ignore it if it has nothing in it
         line = content[whichLine]
         if line.isspace() or len(line) == 0:
+            counter += 1
             continue;
         #
         # take note if this is the longest line we've seen
@@ -73,14 +78,21 @@ def addToData(maxSeqLen, data, fileName, classNum, linesToUse):
             # move onto the next character
             j = j + 1
             #
-        # remember the line of text
-        data[i] = (classNum, temp)
+
+        # we're adding to the test set
+        if counter >= original_data_len + 10000:
+            if len(test) >= (classNum +1) * 1000: # we just need to get 1000 lines for testing
+                break
+            test[i - len(data) + original_test_len] = (classNum, temp)
+        else:         # remember the line of text
+            data[i] = (classNum, temp)
         #
         # move onto the next line
         i = i + 1
+        counter += 1
     #
     # and return the dictionary with the new data
-    return (maxSeqLen, data)
+    return (maxSeqLen, data, test)
 
 
 # this function takes as input a data set encoded as a dictionary
@@ -116,9 +128,10 @@ def pad(maxSeqLen, data):
 def generateDataRNN(maxSeqLen, data):
     #
     # randomly sample batchSize lines of text
-    myInts = np.random.random_integers(0, len(data) - 1, batchSize)
+    myInts = np.random.random_integers (0, len(data) - 1, batchSize)
+
     #
-    # stack all of the text into a matrix of one-hot characters
+    # stack all of the text into a matrix of one-hot characters/home/andrew
     x = np.stack(data[i][1] for i in myInts.flat)
     #
     # and stack all of the labels into a vector of labels
@@ -135,7 +148,8 @@ def generateDataRNN(maxSeqLen, data):
 def generateDataFeedForward(maxSeqLen, data):
     #
     # randomly sample batchSize lines of text
-    myInts = np.random.random_integers(0, len(data) - 1, batchSize)
+    myInts = np.random.random_integers (0, len(data) - 1, batchSize)
+
     #
     # stack all of the text into a matrix of one-hot characters
     x = np.stack(data[i][1].flatten() for i in myInts.flat)
@@ -150,15 +164,17 @@ def generateDataFeedForward(maxSeqLen, data):
 # create the data dictionary
 maxSeqLen = 0
 data = {}
+test = {}
 
 # load up the three data sets
-(maxSeqLen, data) = addToData(maxSeqLen, data, "Holmes.txt", 0, 11000)
-(maxSeqLen, data) = addToData(maxSeqLen, data, "war.txt", 1, 11000)
-(maxSeqLen, data) = addToData(maxSeqLen, data, "william.txt", 2, 11000)
+(maxSeqLen, data, test) = addToData(maxSeqLen, data, test, "Holmes.txt", 0, 13000)
+(maxSeqLen, data, test) = addToData(maxSeqLen, data, test, "war.txt", 1, 13000)
+(maxSeqLen, data, test) = addToData(maxSeqLen, data, test, "william.txt", 2, 13000)
 
 # pad each entry in the dictionary with empty characters as needed so
 # that the sequences are all of the same length
 data = pad(maxSeqLen, data)
+test = pad(maxSeqLen, test)
 
 # now we build the TensorFlow computation... there are two inputs,
 # a batch of text lines and a batch of labels
@@ -169,7 +185,7 @@ inputY = tf.placeholder(tf.int32, [batchSize])
 initialState = tf.placeholder(tf.float32, [batchSize, hiddenUnits])
 
 # the weight matrix that maps the inputs and hidden state to a set of values
-W = tf.Variable(np.random.normal(0, 0.05, (2 * hiddenUnits + 256, hiddenUnits)), dtype=tf.float32)
+W = tf.Variable(np.random.normal(0, 0.05, (hiddenUnits + 256, hiddenUnits)), dtype=tf.float32)
 
 # biaes for the hidden values
 b = tf.Variable(np.zeros((1, hiddenUnits)), dtype=tf.float32)
@@ -185,17 +201,11 @@ sequenceOfLetters = tf.unstack(inputX, axis=2)
 
 # now we implement the forward pass
 currentState = initialState
-
-keepStates = []
-for num in range(10):
-    keepStates.append(tf.Variable(np.random.normal(0, 0.05, (batchSize, hiddenUnits)), dtype=tf.float32))
-
 for timeTick in sequenceOfLetters:
     #
     # concatenate the state with the input, then compute the next state
-    inputPlusState = tf.concat([timeTick, currentState, keepStates.pop(0)], 1)  # concat 10th away state
+    inputPlusState = tf.concat([timeTick, currentState], 1)
     next_state = tf.tanh(tf.matmul(inputPlusState, W) + b)
-    keepStates.append(next_state)  # add the latest state
     currentState = next_state
 
 # compute the set of outputs
@@ -216,18 +226,14 @@ with tf.Session() as sess:
     #
     # initialize everything
     sess.run(tf.global_variables_initializer())
-    #
+
+    final_state = None
     # and run the training iters
-
-    total_loss = 0.0
-    total_correct = 0.0
-    num_testing = 1000
-
-    for epoch in range(numTrainingIters + num_testing):
+    for epoch in range(numTrainingIters):
         #
         # get some data
         x, y = generateDataRNN(maxSeqLen, data)
-
+        #
         # do the training epoch
         _currentState = np.zeros((batchSize, hiddenUnits))
         _totalLoss, _trainingAlg, _currentState, _predictions, _outputs = sess.run(
@@ -250,12 +256,48 @@ with tf.Session() as sess:
             if maxPos == y[i]:
                 numCorrect = numCorrect + 1
 
-        if epoch >= numTrainingIters:
-            total_loss += totalLoss
-            total_correct += numCorrect
-        #
         # print out to the screen
+        final_state = _currentState # saves the state of the neural network after the last training iteration
         print("Step", epoch, "Loss", _totalLoss, "Correct", numCorrect, "out of", batchSize)
 
 
+    # for evaluating accuracy on RNN
+    total_loss = 0.0
+    total_correct = 0.0
+    num_testing = 3000
 
+    num_batches = 30  # since we are going to feed 100 lines per batch, so 30 * 100 = 3000 lines in the test set
+    for k in range(num_batches):
+        test_subset = {}
+        for l in range(batchSize):
+            test_subset[l] = test[k * batchSize + l]
+        x, y = generateDataRNN(maxSeqLen, test_subset)
+        _currentState = np.zeros((batchSize, hiddenUnits))
+        _totalLoss, _predictions, = sess.run(
+            [totalLoss, predictions],
+            feed_dict={
+                inputX: x,
+                inputY: y,
+                initialState: _currentState
+            })
+
+        numCorrect = 0
+        for i in range(len(y)):
+            maxPos = -1
+            maxVal = 0.0
+            for j in range(numClasses):
+                if maxVal < _predictions[i][j]:
+                    maxVal = _predictions[i][j]
+                    maxPos = j
+            if maxPos == y[i]:
+                numCorrect = numCorrect + 1
+        total_loss += _totalLoss
+        total_correct += numCorrect
+
+    print("TESTING RESULTS")
+    avg_loss = total_loss / batchSize
+
+    # avg_correct = total_correct / num_testing
+    # print("Average loss is " + str(avg_loss) + ", average correct is " + str(avg_correct) + ".")
+    print("Average loss for 3000 randomly chosen documents is " + str(avg_loss) + "num correct labels is " + str(
+        total_correct) + " out of " + str(num_testing))
