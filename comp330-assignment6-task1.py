@@ -230,7 +230,6 @@ with tf.Session() as sess:
     # initialize everything
     sess.run(tf.global_variables_initializer())
 
-    final_state = None
     # and run the training iters
     for epoch in range(numTrainingIters):
         #
@@ -260,7 +259,6 @@ with tf.Session() as sess:
                 numCorrect = numCorrect + 1
 
         # print out to the screen
-        final_state = _currentState # saves the state of the neural network after the last training iteration
         print("Step", epoch, "Loss", _totalLoss, "Correct", numCorrect, "out of", batchSize)
 
 

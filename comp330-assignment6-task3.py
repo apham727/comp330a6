@@ -132,7 +132,7 @@ def generateDataRNN(maxSeqLen, data):
     myInts = np.random.random_integers (0, len(data) - 1, batchSize)
 
     #
-    # stack all of the text into a matrix of one-hot characters/home/andrew
+    # stack all of the text into a matrix of one-hot characters
     x = np.stack(data[i][1] for i in myInts.flat)
     #
     # and stack all of the labels into a vector of labels
@@ -179,14 +179,14 @@ test = pad(maxSeqLen, test)
 
 # now we build the TensorFlow computation... there are two inputs,
 # a batch of text lines and a batch of labels
-inputX = tf.placeholder(tf.float32, [batchSize, 256, maxSeqLen])
+inputX = tf.placeholder(tf.float32, [batchSize, 256 * maxSeqLen])
 inputY = tf.placeholder(tf.int32, [batchSize])
 
 # this is the inital state of the RNN, before processing any data
-initialState = tf.placeholder(tf.float32, [batchSize, hiddenUnits])
+# initialState = tf.placeholder(tf.float32, [batchSize, hiddenUnits])
 
 # the weight matrix that maps the inputs and hidden state to a set of values
-W = tf.Variable(np.random.normal(0, 0.05, (hiddenUnits + 256, hiddenUnits)), dtype=tf.float32)
+W = tf.Variable(np.random.normal(0, 0.05, (256 * maxSeqLen, hiddenUnits)), dtype=tf.float32)
 
 # biaes for the hidden values
 b = tf.Variable(np.zeros((1, hiddenUnits)), dtype=tf.float32)
@@ -198,19 +198,21 @@ b2 = tf.Variable(np.zeros((1, numClasses)), dtype=tf.float32)
 # unpack the input sequences so that we have a series of matrices,
 # each of which has a one-hot encoding of the current character from
 # every input sequence
-sequenceOfLetters = tf.unstack(inputX, axis=2)
+# sequenceOfLetters = tf.unstack(inputX, axis=2)
 
 # now we implement the forward pass
-currentState = initialState
-for timeTick in sequenceOfLetters:
-    #
-    # concatenate the state with the input, then compute the next state
-    inputPlusState = tf.concat([timeTick, currentState], 1)
-    next_state = tf.tanh(tf.matmul(inputPlusState, W) + b)
-    currentState = next_state
+# currentState = initialState
+# for timeTick in sequenceOfLetters:
+#     #
+#     # concatenate the state with the input, then compute the next state
+#     inputPlusState = tf.concat([timeTick, currentState], 1)
+#     next_state = tf.tanh(tf.matmul(inputPlusState, W) + b)
+#     currentState = next_state
 
+# input layer to the first layer
+next_state = tf.tanh(tf.matmul(inputX, W) + b)
 # compute the set of outputs
-outputs = tf.matmul(currentState, W2) + b2
+outputs = tf.matmul(next_state, W2) + b2
 
 predictions = tf.nn.softmax(outputs)
 
@@ -228,21 +230,19 @@ with tf.Session() as sess:
     # initialize everything
     sess.run(tf.global_variables_initializer())
 
-    final_state = None
     # and run the training iters
     for epoch in range(numTrainingIters):
         #
         # get some data
-        x, y = generateDataRNN(maxSeqLen, data)
+        x, y = generateDataFeedForward(maxSeqLen, data)
         #
         # do the training epoch
-        _currentState = np.zeros((batchSize, hiddenUnits))
-        _totalLoss, _trainingAlg, _currentState, _predictions, _outputs = sess.run(
-            [totalLoss, trainingAlg, currentState, predictions, outputs],
+        # _currentState = np.zeros((batchSize, hiddenUnits))
+        _totalLoss, _trainingAlg, _predictions, _outputs = sess.run(
+            [totalLoss, trainingAlg, predictions, outputs],
             feed_dict={
                 inputX: x,
-                inputY: y,
-                initialState: _currentState
+                inputY: y
             })
         #
         # just FYI, compute the number of correct predictions
@@ -258,7 +258,6 @@ with tf.Session() as sess:
                 numCorrect = numCorrect + 1
 
         # print out to the screen
-        final_state = _currentState # saves the state of the neural network after the last training iteration
         print("Step", epoch, "Loss", _totalLoss, "Correct", numCorrect, "out of", batchSize)
 
     # for evaluating accuracy on RNN
@@ -275,15 +274,14 @@ with tf.Session() as sess:
         for l in range(batchSize):
             test_subset[l] = test[k * batchSize + l]
         # format the test data into a form that we can feed into the neural network
-        x, y = generateDataRNN(maxSeqLen, test_subset)
+        x, y = generateDataFeedForward(maxSeqLen, test_subset)
         # run the test data through the neural network without modifying the network's parameters
-        _currentState = np.zeros((batchSize, hiddenUnits))
+        # _currentState = np.zeros((batchSize, hiddenUnits))
         _totalLoss, _predictions, = sess.run(
             [totalLoss, predictions],
             feed_dict={
                 inputX: x,
-                inputY: y,
-                initialState: _currentState
+                inputY: y
             })
 
         numCorrect = 0
