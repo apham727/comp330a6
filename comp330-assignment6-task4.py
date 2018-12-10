@@ -14,7 +14,7 @@ numClasses = 3
 # the number of data points in a batch
 batchSize = 100
 
-state_size = 4
+state_size = 500
 
 
 # this function takes a dictionary (called data) which contains
@@ -184,13 +184,13 @@ test = pad(maxSeqLen, test)
 # now we build the TensorFlow computation... there are two inputs,
 # a batch of text lines and a batch of labels
 inputX = tf.placeholder(tf.float32, [batchSize, 256, maxSeqLen])
-inputY = tf.placeholder(tf.int32, [batchSize])
+inputY = tf.placeholder(tf.int32, [batchSize, 256])
 
 # this is the inital state of the RNN, before processing any data
 initialState = tf.placeholder(tf.float32, [batchSize, hiddenUnits])
 
-cell_state = tf.placeholder(tf.float32, [batch_size, state_size])
-hidden_state = tf.placeholder(tf.float32, [batch_size, state_size])
+cell_state = tf.placeholder(tf.float32, [batchSize, state_size])
+hidden_state = tf.placeholder(tf.float32, [batchSize, state_size])
 init_state = tf.nn.rnn_cell.LSTMStateTuple(cell_state, hidden_state)
 
 # the weight matrix that maps the inputs and hidden state to a set of values
@@ -207,6 +207,7 @@ b2 = tf.Variable(np.zeros((1, numClasses)), dtype=tf.float32)
 # each of which has a one-hot encoding of the current character from
 # every input sequence
 sequenceOfLetters = tf.unstack(inputX, axis=2)
+labels_series = tf.unstack(inputY, axis=1)
 
 # # now we implement the forward pass
 # currentState = initialState
@@ -224,7 +225,7 @@ sequenceOfLetters = tf.unstack(inputX, axis=2)
 #     currentState = next_state
 
 cell = tf.nn.rnn_cell.BasicLSTMCell(state_size, state_is_tuple=True)
-states_series, current_state = tf.nn.rnn(cell, inputs_series, init_state)
+states_series, current_state = tf.contrib.rnn.static_rnn(cell, sequenceOfLetters, init_state)
 
 
 logits_series = [tf.matmul(state, W2) + b2 for state in states_series]
@@ -236,7 +237,7 @@ predictions_series = [tf.nn.softmax(logits) for logits in logits_series]
 # predictions = tf.nn.softmax(outputs)
 
 
-losses = [tf.nn.sparse_softmax_cross_entropy_with_logits(logits, labels) for logits, labels in zip(logits_series,labels_series)]
+losses = [tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=logits) for logits, labels in zip(logits_series,labels_series)]
 totalLoss = tf.reduce_mean(losses)
 
 trainingAlg = tf.train.AdagradOptimizer(0.2).minimize(totalLoss)
@@ -266,7 +267,7 @@ with tf.Session() as sess:
         _currentCellState = np.zeros((batchSize, hiddenUnits))
         _currentHiddenState = np.zeros((batchSize, hiddenUnits))
         _totalLoss, _trainingAlg, _currentState, _predictions, _outputs = sess.run(
-            [totalLoss, trainingAlg, currentState, predictions, outputs],
+            [totalLoss, trainingAlg, current_state, predictions_series, logits_series],
             feed_dict={
                 inputX: x,
                 inputY: y,
@@ -308,7 +309,7 @@ with tf.Session() as sess:
         # run the test data through the neural network without modifying the network's parameters
         _currentState = np.zeros((batchSize, hiddenUnits))
         _totalLoss, _predictions, = sess.run(
-            [totalLoss, predictions],
+            [totalLoss, predictions_series],
             feed_dict={
                 inputX: x,
                 inputY: y,
